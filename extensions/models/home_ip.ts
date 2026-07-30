@@ -21,8 +21,8 @@ const GlobalArgsSchema = z.object({
   connectHost: z.string().url().describe(
     "1Password Connect base URL, e.g. http://connect:8080",
   ),
-  connectToken: z.string().describe(
-    "1Password Connect API token — supply via vault.get(), never inline",
+  connectToken: z.string().meta({ sensitive: true }).describe(
+    "1Password Connect API token — supply via vault.get() or the environment, never inline",
   ),
   opVault: z.string().default("homelab").describe(
     "1Password vault holding the item. Must be Connect-readable; Connect cannot read Private/Shared.",
