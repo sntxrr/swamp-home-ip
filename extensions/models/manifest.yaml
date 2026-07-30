@@ -1,0 +1,21 @@
+manifestVersion: 1
+
+name: "@sntxrr/home-ip"
+version: "2026.07.30.1"
+description: "Resolve the current public IPv4 address and keep a 1Password field in sync with it via 1Password Connect"
+repository: "https://github.com/sntxrr/swamp-home-ip"
+
+models:
+  - home_ip.ts
+
+additionalFiles:
+  - README.md
+  - LICENSE.md
+
+labels:
+  - 1password
+  - onepassword
+  - connect
+  - networking
+  - dynamic-ip
+  - homelab
