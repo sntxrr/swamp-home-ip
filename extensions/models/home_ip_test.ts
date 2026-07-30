@@ -15,6 +15,9 @@ const GLOBAL_ARGS = {
   itemTitle: "home-network",
   fieldLabel: "home-ip",
   ipEndpoint: "https://api.ipify.org?format=json",
+  // Supplied explicitly because the test context hands globalArgs to the model
+  // verbatim; at run time swamp applies the schema defaults first.
+  timeoutMs: 10000,
 };
 
 function syncContext(globalArgs: Record<string, unknown> = GLOBAL_ARGS) {
@@ -172,6 +175,47 @@ Deno.test("out-of-range octets are refused", async () => {
         () => model.methods.sync.execute({ dryRun: false }, context),
         Error,
         "not a dotted-quad IPv4 address",
+      );
+    },
+  );
+});
+
+Deno.test("octets with leading zeros are refused", async () => {
+  // "010.1.1.1" is a valid dotted quad by shape but inet_aton and friends read
+  // a leading zero as octal, so this would mean 8.1.1.1 in the firewall rule it
+  // eventually lands in. Refusing keeps the previous good value in place.
+  const { context } = syncContext();
+
+  await withMockedFetch(
+    () => Promise.resolve(Response.json({ ip: "010.1.1.1" })),
+    async () => {
+      await assertRejects(
+        () => model.methods.sync.execute({ dryRun: false }, context),
+        Error,
+        "not a dotted-quad IPv4 address",
+      );
+    },
+  );
+});
+
+Deno.test("a hung IP endpoint aborts instead of stalling the schedule", async () => {
+  // The failure this guards is silent: with overlap prevention, one run that
+  // never returns means every later */15 tick is skipped, and /health still
+  // reports status ok. A bounded failure is recoverable; a hang is not.
+  const { context } = syncContext({ ...GLOBAL_ARGS, timeoutMs: 50 });
+
+  await withMockedFetch(
+    (_req: Request) =>
+      new Promise<Response>((_resolve, reject) => {
+        // Never resolves on its own; only the AbortSignal ends this.
+        _req.signal.addEventListener("abort", () =>
+          reject(new DOMException("timed out", "TimeoutError")));
+      }),
+    async () => {
+      await assertRejects(
+        () => model.methods.sync.execute({ dryRun: false }, context),
+        Error,
+        "timed out after 50ms",
       );
     },
   );

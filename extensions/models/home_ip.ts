@@ -37,6 +37,9 @@ const GlobalArgsSchema = z.object({
     .describe(
       "Endpoint returning the caller's public IP. Must return JSON containing an `ip` key.",
     ),
+  timeoutMs: z.number().int().positive().default(10000).describe(
+    "Abort any single HTTP call after this long. Guards the scheduled case: a hung request would otherwise stall the run forever and, because overlapping runs are skipped, silently stop every future tick.",
+  ),
 });
 
 type GlobalArgs = z.infer<typeof GlobalArgsSchema>;
@@ -71,10 +74,12 @@ type Logger = {
 function assertIpv4(candidate: string): string {
   const ip = candidate.trim();
   const octets = ip.split(".");
+  // Leading zeros are rejected deliberately, not just for tidiness: "010.1.1.1"
+  // is read as octal by some parsers (inet_aton among them), so a value that
+  // looks benign here could mean a different address in the firewall rule it
+  // ends up in.
   const valid = octets.length === 4 &&
-    octets.every((o) =>
-      /^\d{1,3}$/.test(o) && Number(o) >= 0 && Number(o) <= 255
-    );
+    octets.every((o) => /^(0|[1-9]\d{0,2})$/.test(o) && Number(o) <= 255);
   if (!valid) {
     throw new Error(
       `Refusing to store "${ip}" — not a dotted-quad IPv4 address. ` +
@@ -90,15 +95,26 @@ async function connectFetch(
   path: string,
   init: RequestInit = {},
 ): Promise<unknown> {
-  const res = await fetch(`${globalArgs.connectHost}${path}`, {
-    ...init,
-    headers: {
-      Authorization: `Bearer ${globalArgs.connectToken}`,
-      "Content-Type": "application/json",
-      Accept: "application/json",
-      ...(init.headers ?? {}),
-    },
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${globalArgs.connectHost}${path}`, {
+      ...init,
+      headers: {
+        Authorization: `Bearer ${globalArgs.connectToken}`,
+        "Content-Type": "application/json",
+        Accept: "application/json",
+        ...(init.headers ?? {}),
+      },
+      signal: AbortSignal.timeout(globalArgs.timeoutMs),
+    });
+  } catch (cause) {
+    const reason = cause instanceof Error && cause.name === "TimeoutError"
+      ? `timed out after ${globalArgs.timeoutMs}ms`
+      : String(cause);
+    throw new Error(
+      `1Password Connect ${init.method ?? "GET"} ${path} failed: ${reason}`,
+    );
+  }
 
   const body = await res.text();
   if (!res.ok) {
@@ -229,9 +245,20 @@ export const model = {
       ) => {
         const { globalArgs, logger } = context;
 
-        const ipRes = await fetch(globalArgs.ipEndpoint, {
-          headers: { Accept: "application/json" },
-        });
+        let ipRes: Response;
+        try {
+          ipRes = await fetch(globalArgs.ipEndpoint, {
+            headers: { Accept: "application/json" },
+            signal: AbortSignal.timeout(globalArgs.timeoutMs),
+          });
+        } catch (cause) {
+          const reason = cause instanceof Error && cause.name === "TimeoutError"
+            ? `timed out after ${globalArgs.timeoutMs}ms`
+            : String(cause);
+          throw new Error(
+            `IP endpoint ${globalArgs.ipEndpoint} failed: ${reason}`,
+          );
+        }
         if (!ipRes.ok) {
           throw new Error(
             `IP endpoint ${globalArgs.ipEndpoint} returned ${ipRes.status}`,

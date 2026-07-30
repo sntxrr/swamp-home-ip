@@ -23,7 +23,7 @@ swamp model create @sntxrr/home-ip home-ip \
   --global-arg 'connectToken=${{ vault.get(my-1password, "op://Private/<item-uuid>/token.jwt") }}' \
   --global-arg 'opVault=homelab'
 
-swamp model @sntxrr/home-ip method run sync home-ip --args '{"dryRun": true}'
+swamp model @sntxrr/home-ip method run sync home-ip --arg dryRun=true
 ```
 
 Reference the Connect token by item **UUID**, not title: `op` rejects `(` and

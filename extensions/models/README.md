@@ -31,6 +31,7 @@ comes back empty.
 | -------------- | ---------------------------------- | -------------------------------------------------- |
 | `connectHost`  | —                                  | Connect base URL, e.g. `http://connect:8080`        |
 | `connectToken` | —                                  | Connect API token — supply via `vault.get()`        |
+| `timeoutMs`    | `10000`                            | Abort any single HTTP call after this long          |
 | `opVault`      | `homelab`                          | Vault holding the item (must be Connect-readable)   |
 | `itemTitle`    | `home-network`                     | Title of the item to update                         |
 | `fieldLabel`   | `home-ip`                          | Label of the field holding the address              |
@@ -52,7 +53,7 @@ only when they differ.
 
 ```bash
 swamp model @sntxrr/home-ip method run sync home-ip
-swamp model @sntxrr/home-ip method run sync home-ip --args '{"dryRun": true}'
+swamp model @sntxrr/home-ip method run sync home-ip --arg dryRun=true
 ```
 
 ## Behaviour worth knowing
