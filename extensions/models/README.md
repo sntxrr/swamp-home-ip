@@ -84,10 +84,14 @@ Each run writes a `homeIp` resource:
 | `vaultId`    | Resolved 1Password vault UUID                          |
 | `checkedAt`  | ISO timestamp of the check                             |
 
-Query the history of actual changes with:
+Inspect it with a single CEL predicate — note `content.`, and that the model name
+is part of the predicate rather than a separate argument:
 
 ```bash
-swamp data query home-ip 'attributes.changed == true'
+swamp data query 'modelName == "home-ip"' --json | jq '.results[].content'
+
+# runs that actually wrote
+swamp data query 'modelName == "home-ip" && content.changed == true' --json
 ```
 
 ## Scheduling
