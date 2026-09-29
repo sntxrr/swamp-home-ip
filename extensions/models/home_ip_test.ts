@@ -3,7 +3,7 @@ import { assertEquals, assertRejects, assertStringIncludes } from "jsr:@std/asse
 import {
   createModelTestContext,
   withMockedFetch,
-} from "jsr:@swamp-club/swamp-testing";
+} from "jsr:@swamp-club/swamp-testing@0.20260928.39";
 import { model } from "./home_ip.ts";
 
 type SyncContext = Parameters<typeof model.methods.sync.execute>[1];
